@@ -1,0 +1,9 @@
+Mimecast MCP Server
+Copyright 2026 MSPbots.ai
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+"Mimecast" is a trademark of its respective owner. This project is an
+independent integration that calls the documented Mimecast API 2.0; it
+contains no Mimecast source code and is not affiliated with or endorsed by
+Mimecast.
