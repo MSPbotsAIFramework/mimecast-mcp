@@ -25,7 +25,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .api_client import MimecastClient, MimecastCredentials
-from .config import Settings, normalize_region
+from .config import GLOBAL_HOST, Settings, normalize_region
 
 HEADER_CLIENT_ID = "X-Mimecast-Client-ID"
 HEADER_CLIENT_SECRET = "X-Mimecast-Client-Secret"
@@ -80,7 +80,12 @@ def _error(scope: Scope, receive: Receive, send: Send, status: int, error: str, 
 
 
 class GatewayCredentialsMiddleware:
-    """Reads the Mimecast API 2.0 application credentials (and optional region) on /mcp requests."""
+    """Reads the Mimecast API 2.0 application credentials (and optional region) on /mcp requests.
+
+    Missing required headers -> 401 listing them. An unknown region does not block the
+    request (tools/list must work with any values); tools report it instead and never
+    call any host.
+    """
 
     def __init__(self, app: ASGIApp):
         self.app = app
@@ -98,15 +103,17 @@ class GatewayCredentialsMiddleware:
             await _error(scope, receive, send, 401, "Missing credentials", f"Missing header(s): {', '.join(missing)}")
             return
         host = normalize_region(_clean(request.headers.get(HEADER_REGION)))
+        header_error = None
         if host is None:
-            await _error(
-                scope, receive, send, 400, "Invalid credentials",
-                f"{HEADER_REGION} must be a region code (us, eu, uk, de, ...), us-api / uk-api / de-api, or a *.services.mimecast.com host",
+            header_error = (
+                f"{HEADER_REGION} must be a region code (us, eu, uk, de, ...), us-api / uk-api / de-api, or a *.services.mimecast.com host"
             )
-            return
+            # Never the caller's value: the client is built on the allow-listed
+            # global host, and tools return header_error before any request.
+            host = GLOBAL_HOST
 
         request_id = (request.headers.get("x-request-id") or "").strip()[:64] or uuid.uuid4().hex[:12]
-        creds_token = _credentials_var.set(MimecastCredentials(client_id, client_secret, host))
+        creds_token = _credentials_var.set(MimecastCredentials(client_id, client_secret, host, header_error))
         rid_token = request_id_var.set(request_id)
         try:
             await self.app(scope, receive, send)

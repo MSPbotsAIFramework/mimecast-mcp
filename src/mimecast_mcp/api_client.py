@@ -92,6 +92,9 @@ class MimecastCredentials:
     client_id: str
     client_secret: str
     host: str
+    # Set when a header value is malformed: tools then return invalid_argument
+    # instead of calling Mimecast, while tools/list still works.
+    header_error: str | None = None
 
     def __repr__(self) -> str:  # never leak the secret into logs or tracebacks
         return f"MimecastCredentials(host={self.host!r}, client_id={self.client_id!r}, client_secret=<redacted>)"
@@ -112,6 +115,7 @@ class MimecastClient:
     def __init__(self, credentials: MimecastCredentials, http_client: httpx.AsyncClient | None = None):
         self._credentials = credentials
         self._http = http_client
+        self.header_error = credentials.header_error
         self.host = credentials.host
         self.base_url = f"https://{credentials.host}"
 

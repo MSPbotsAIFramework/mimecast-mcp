@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Credential middleware: 401 / 400 on bad headers, region hosts, per-request isolation."""
+"""Credential middleware: 401 on missing headers, deferred format errors, region hosts, per-request isolation."""
 
 import asyncio
 
@@ -55,10 +55,24 @@ def test_missing_credentials_return_401(headers):
     assert resp.json()["required_headers"] == ["X-Mimecast-Client-ID", "X-Mimecast-Client-Secret"]
 
 
-def test_unknown_region_returns_400():
+def test_unknown_region_still_lists_tools():
+    # The admin console refreshes the tool catalog with placeholder header values.
+    headers = {"X-Mimecast-Client-ID": "placeholder", "X-Mimecast-Client-Secret": "placeholder", "X-Mimecast-Region": "placeholder"}
     with _client() as client:
-        resp = client.post("/mcp", json=LIST_TOOLS, headers=MCP_HEADERS | CREDS | {"X-Mimecast-Region": "evil.example.net"})
-    assert resp.status_code == 400
+        resp = client.post("/mcp", json=LIST_TOOLS, headers=MCP_HEADERS | headers)
+    assert resp.status_code == 200
+    assert "mimecast_find_message" in resp.text
+
+
+def test_unknown_region_is_reported_by_tools():
+    seen = _run_middleware([(b"x-mimecast-client-id", b"id"), (b"x-mimecast-client-secret", b"secret"), (b"x-mimecast-region", b"evil.example.net")])
+    assert "*.services.mimecast.com" in seen["client"].header_error
+    assert seen["client"].host == "api.services.mimecast.com"
+    call = {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "mimecast_get_queue_status", "arguments": {}}}
+    with _client() as client:
+        resp = client.post("/mcp", json=call, headers=MCP_HEADERS | CREDS | {"X-Mimecast-Region": "evil.example.net"})
+    assert resp.status_code == 200
+    assert '\\"invalid_argument\\"' in resp.text and "services.mimecast.com host" in resp.text
 
 
 @pytest.mark.parametrize(

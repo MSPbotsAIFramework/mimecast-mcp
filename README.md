@@ -30,7 +30,9 @@ cached in memory per credential set and renewed on expiry) and sends it as `Auth
 Region codes all use the global gateway, which serves every account and fails over between regions;
 `us-api`, `uk-api` and `de-api` pin traffic to that regional gateway (data residency, no failover).
 
-A request to `/mcp` without the client id or secret gets HTTP 401; an unknown region gets HTTP 400.
+A request to `/mcp` without the client id or secret gets HTTP 401. An unknown region does not block
+the request (tools/list still works); every tool call then returns an `invalid_argument` error naming
+the accepted values, and nothing is sent to any host.
 
 ## Tools
 
