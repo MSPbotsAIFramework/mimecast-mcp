@@ -52,10 +52,14 @@ INSTRUCTIONS = (
     "- Threats: mimecast_get_ttp_logs(type url|attachment|impersonation), "
     "mimecast_get_threat_incidents; admin changes: mimecast_get_audit_events.\n"
     "- Mail flow: mimecast_get_queue_status.\n"
+    "- Policies: mimecast_list_policies(type blockedsenders|antispoofing-bypass) -> "
+    "mimecast_get_policy(type, id); mimecast_manage_sender(action permit|block, sender, to, "
+    "confirm) permits or blocks one sender for one mailbox.\n"
     "Dates are ISO 8601 with a zone (2026-03-01T00:00:00Z or +0000). Lists return "
-    "next_page_token; pass it back as page_token. Releasing a held message delivers it, "
-    "so only do it when the user explicitly asks. Each tool needs the matching "
-    "permission on the API application's role; a permission error names it."
+    "next_page_token; pass it back as page_token. Releasing a held message delivers it, and "
+    "managing a sender changes mail flow going forward, so only do either when the user "
+    "explicitly asks. Each tool needs the matching permission on the API application's role; "
+    "a permission error names it."
 )
 
 
@@ -136,9 +140,9 @@ def create_mcp_server(settings: Settings | None = None) -> FastMCP:
 
     client_factory: Callable[[], MimecastClient | None] = get_client_from_context
 
-    from .tools import messages, navigation, queue, threats
+    from .tools import messages, navigation, policies, queue, threats
 
-    for module in (navigation, messages, threats, queue):
+    for module in (navigation, messages, threats, queue, policies):
         module.register(mcp, client_factory)
 
     return mcp

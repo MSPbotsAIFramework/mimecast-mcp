@@ -32,9 +32,13 @@ DOMAINS: dict[str, tuple[str, list[str]]] = {
         ["mimecast_get_ttp_logs", "mimecast_get_threat_incidents", "mimecast_get_audit_events"],
     ),
     "queue": ("Inbound and outbound email queues.", ["mimecast_get_queue_status"]),
+    "policies": (
+        "Email security policies (blocked senders, anti-spoofing bypass) and managed senders.",
+        ["mimecast_list_policies", "mimecast_get_policy", "mimecast_manage_sender"],
+    ),
 }
 
-Domain = Literal["messages", "threats", "queue"]
+Domain = Literal["messages", "threats", "queue", "policies"]
 
 
 def register(mcp: FastMCP, client_factory: ClientFactory) -> None:

@@ -40,6 +40,9 @@ EXPECTED: dict[str, tuple[set[str], set[str]]] = {
     "mimecast_get_threat_incidents": (P, set()),
     "mimecast_get_ttp_logs": ({"type"} | D | P, {"type"}),
     "mimecast_get_audit_events": ({"categories"} | D | P, set()),
+    "mimecast_list_policies": ({"type"} | P, {"type"}),
+    "mimecast_get_policy": ({"type", "id"}, {"type", "id"}),
+    "mimecast_manage_sender": ({"action", "sender", "to", "confirm"}, {"action", "sender", "to"}),
 }
 
 
@@ -50,7 +53,7 @@ def tools():
 
 def test_tool_names_are_stable(tools):
     assert set(tools) == set(EXPECTED)
-    assert len(tools) == 11
+    assert len(tools) == 14
 
 
 @pytest.mark.parametrize("name", sorted(EXPECTED))
@@ -73,7 +76,7 @@ def test_description_budget(tools, name):
 def test_annotations(tools, name):
     annotations = tools[name].annotations
     assert annotations is not None
-    if name == "mimecast_release_message":
+    if name in {"mimecast_release_message", "mimecast_manage_sender"}:
         assert annotations.readOnlyHint is False
         assert "explicitly ask" in tools[name].description
     else:

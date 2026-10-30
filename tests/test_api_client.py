@@ -23,7 +23,7 @@ import pytest
 from mimecast_mcp import api_client
 from mimecast_mcp.api_client import MimecastClient, MimecastCredentials, MimecastError
 from mimecast_mcp.server import _credentials_var, create_mcp_server
-from mimecast_mcp.tools._common import parse_datetime, window
+from mimecast_mcp.tools._common import DEFAULT_PAGE_SIZE, parse_datetime, window
 
 CREDS = MimecastCredentials("id-1", "secret-1", "api.services.mimecast.com")
 
@@ -315,6 +315,59 @@ async def test_audit_events_too_old(monkeypatch):
     assert rec.requests == []
 
 
+@pytest.mark.parametrize("policy_type", ["blockedsenders", "antispoofing-bypass"])
+async def test_list_policies_shape(monkeypatch, policy_type):
+    rec = Recorder({f"/api/policy/{policy_type}/get-policy": ok([{"id": "p1"}, {"id": "p2"}], next_token="n2")})
+    out = await _call(monkeypatch, rec, "mimecast_list_policies", {"type": policy_type})
+    assert out == {"policies": [{"id": "p1"}, {"id": "p2"}], "count": 2, "has_more": True, "next_page_token": "n2", "type": policy_type}
+    assert _body(rec.api()[0]) == {"data": [{}], "meta": {"pagination": {"pageSize": DEFAULT_PAGE_SIZE}}}
+
+
+async def test_get_policy_found(monkeypatch):
+    rec = Recorder({"/api/policy/blockedsenders/get-policy": ok([{"id": "p1", "description": "Block spam domain"}])})
+    out = await _call(monkeypatch, rec, "mimecast_get_policy", {"type": "blockedsenders", "id": "p1"})
+    assert out == {"id": "p1", "description": "Block spam domain"}
+    assert _body(rec.api()[0])["data"] == [{"id": "p1"}]
+
+
+async def test_get_policy_not_found(monkeypatch):
+    rec = Recorder({"/api/policy/antispoofing-bypass/get-policy": ok([])})
+    out = await _call(monkeypatch, rec, "mimecast_get_policy", {"type": "antispoofing-bypass", "id": "missing"})
+    assert out["error"]["code"] == "not_found"
+    assert rec.api()
+
+
+async def test_manage_sender_needs_confirm(monkeypatch):
+    rec = Recorder()
+    out = await _call(monkeypatch, rec, "mimecast_manage_sender", {"action": "permit", "sender": "a@x.org", "to": "b@y.org"})
+    assert out["done"] is False
+    assert rec.requests == []
+
+
+async def test_manage_sender_confirmed(monkeypatch):
+    rec = Recorder({"/api/managedsender/permit-or-block-sender": ok([{"id": "ms1", "sender": "a@x.org", "to": "b@y.org", "type": "Permit"}])})
+    out = await _call(
+        monkeypatch, rec, "mimecast_manage_sender", {"action": "permit", "sender": "a@x.org", "to": "b@y.org", "confirm": True}
+    )
+    assert out == {"done": True, "id": "ms1", "sender": "a@x.org", "to": "b@y.org", "type": "Permit"}
+    assert _body(rec.api()[0]) == {"data": [{"action": "permit", "sender": "a@x.org", "to": "b@y.org"}]}
+
+
+async def test_manage_sender_failure_is_reported(monkeypatch):
+    fail = {
+        "meta": {"status": 200},
+        "data": [],
+        "fail": [{"key": {"sender": "a@x.org"}, "errors": [{"code": "err_access_denied", "message": "Access denied"}]}],
+    }
+    out = await _call(
+        monkeypatch,
+        Recorder({"/api/managedsender/permit-or-block-sender": fail}),
+        "mimecast_manage_sender",
+        {"action": "block", "sender": "a@x.org", "to": "b@y.org", "confirm": True},
+    )
+    assert out["error"]["code"] == "unauthorized"
+
+
 async def test_status(monkeypatch):
     out = await _call(monkeypatch, Recorder(), "mimecast_status", {})
-    assert out == {"connected": True, "api_host": "api.services.mimecast.com", "domains": ["messages", "threats", "queue"]}
+    assert out == {"connected": True, "api_host": "api.services.mimecast.com", "domains": ["messages", "threats", "queue", "policies"]}
