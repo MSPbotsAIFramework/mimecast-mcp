@@ -1,7 +1,7 @@
 [project]
 name = "mimecast-mcp"
-version = "1.0.0"
-description = "MCP server for the Mimecast API 2.0 (message tracking, held messages, threat protection logs, remediation incidents, audit events, queues)"
+version = "1.1.0"
+description = "MCP server for the Mimecast API 2.0 (message tracking, held messages, threat protection logs, remediation incidents, audit events, queues, policies and managed senders)"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]

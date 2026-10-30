@@ -4,49 +4,63 @@
     "ac": "AC1",
     "text": "Given credentials whose role has Gateway | Policies | Read, When mimecast_list_policies is called with type=\"blockedsenders\", Then it returns a JSON list with count, has_more and next_page_token.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_list_policies_shape[blockedsenders]"]
+    "tests": ["tests/test_api_client.py::test_list_policies_shape[blockedsenders]"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_list_policies_shape -> 2 passed. Asserts the tool returns {policies, count, has_more, next_page_token, type} and POSTs {\"data\":[{}]} to /api/policy/blockedsenders/get-policy."
   },
   {
     "id": "TC2",
     "ac": "AC1",
     "text": "Given the same credentials, When mimecast_list_policies is called with type=\"antispoofing-bypass\", Then it returns that type's policies in the same list shape.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_list_policies_shape[antispoofing-bypass]"]
+    "tests": ["tests/test_api_client.py::test_list_policies_shape[antispoofing-bypass]"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_list_policies_shape -> 2 passed (see TC1 run); antispoofing-bypass parametrization asserts the same shape against /api/policy/antispoofing-bypass/get-policy."
   },
   {
     "id": "TC3",
     "ac": "AC2",
     "text": "Given a policy id returned by mimecast_list_policies, When mimecast_get_policy(type, id) is called, Then it returns that single policy's fields.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_get_policy_found"]
+    "tests": ["tests/test_api_client.py::test_get_policy_found"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_get_policy_found -> 1 passed. Asserts mimecast_get_policy(type=\"blockedsenders\", id=\"p1\") returns {\"id\":\"p1\",\"description\":\"Block spam domain\"} and POSTs {\"data\":[{\"id\":\"p1\"}]}."
   },
   {
     "id": "TC4",
     "ac": "AC2",
     "text": "Given an id Mimecast does not recognize, When mimecast_get_policy(type, id) is called, Then it returns a not_found error envelope instead of raising or returning an empty 200.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_get_policy_not_found"]
+    "tests": ["tests/test_api_client.py::test_get_policy_not_found"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_get_policy_not_found -> 1 passed. Mimecast replies 200 with empty data; tool returns {\"error\":{\"code\":\"not_found\",...}} rather than raising or returning {}."
   },
   {
     "id": "TC5",
     "ac": "AC3",
     "text": "Given a sender and a recipient mailbox address, When mimecast_manage_sender(action, sender, to) is called without confirm: true, Then no request reaches Mimecast (recorder.api() is empty) and the tool returns done: false with an explanatory message.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_manage_sender_needs_confirm"]
+    "tests": ["tests/test_api_client.py::test_manage_sender_needs_confirm"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_manage_sender_needs_confirm -> 1 passed. Asserts out[\"done\"] is False and rec.requests == [] (no network call made)."
   },
   {
     "id": "TC6",
     "ac": "AC4",
     "text": "Given the same call repeated with confirm: true, When mimecast_manage_sender is invoked, Then it POSTs {action, sender, to} to /api/managedsender/permit-or-block-sender and returns done: true with the sender/recipient/type echoed back.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_manage_sender_confirmed"]
+    "tests": ["tests/test_api_client.py::test_manage_sender_confirmed"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_manage_sender_confirmed -> 1 passed. Asserts the POST body {\"action\":\"permit\",\"sender\":\"a@x.org\",\"to\":\"b@y.org\"} and the response {\"done\":true,\"id\":\"ms1\",\"sender\":\"a@x.org\",\"to\":\"b@y.org\",\"type\":\"Permit\"}."
   },
   {
     "id": "TC7",
     "ac": "AC4",
     "text": "Given Mimecast rejects the permit-or-block-sender call (e.g. the role lacks Gateway | Managed Senders | Edit, returned as a fail[] item), When mimecast_manage_sender is called with confirm: true, Then the tool returns the standard structured error envelope, not a raw exception.",
     "type": "auto",
-    "tests": ["tests/test_api_client.py::test_manage_sender_failure_is_reported"]
+    "tests": ["tests/test_api_client.py::test_manage_sender_failure_is_reported"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_manage_sender_failure_is_reported -> 1 passed. Mimecast replies 200 with a fail[] item (err_access_denied); tool returns {\"error\":{\"code\":\"unauthorized\",...}} instead of raising."
   },
   {
     "id": "TC8",
@@ -54,6 +68,8 @@
     "text": "Given credentials whose role is missing the required permission (Gateway | Policies | Read or Gateway | Managed Senders | Edit, simulated as an HTTP 403 from Mimecast), When any of the three new tools is called, Then the error envelope's code is \"unauthorized\", matching the same generic classify_status mapping every existing tool already gets (no new code path).",
     "type": "auto",
     "tests": ["tests/test_api_client.py::test_get_policy_not_found", "tests/test_api_client.py::test_manage_sender_failure_is_reported"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_api_client.py::test_manage_sender_failure_is_reported tests/test_api_client.py::test_error_envelope -> both pass. test_manage_sender_failure_is_reported shows the fail[]->unauthorized mapping on a new tool's call site; test_tools.py::test_error_envelope (unchanged, parametrized over 403) shows classify_status itself needs no new code path.",
     "notes": "No dedicated 403 test is required beyond the existing generic classify_status coverage already exercised by test_api_client.py (see test_bad_client_credentials_are_unauthorized); the two cited tests exercise the same error-envelope path for the new tools' call sites specifically."
   },
   {
@@ -62,6 +78,8 @@
     "text": "Given a request to /mcp missing the X-Mimecast-Client-ID / X-Mimecast-Client-Secret headers, When tools/call is attempted for any of the three new tools, Then the gateway middleware rejects it with 401 before any tool code runs and before any request reaches Mimecast.",
     "type": "auto",
     "tests": ["tests/test_middleware.py::test_missing_credentials_return_401"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_middleware.py::test_missing_credentials_return_401 -> passed (parametrized). Also confirmed live: curl POST /mcp with no X-Mimecast-* headers against a running server (uv run python -m mimecast_mcp, port 18100) returned HTTP 401 before dispatch.",
     "notes": "Covered by the existing generic, path-level middleware test (parametrized over missing/blank/placeholder header combinations) — it runs ahead of tool dispatch, so it already covers the three new tools with no test change required. Cited here, not duplicated, per docs/tickets/PRD-21236.md Non-functional section."
   },
   {
@@ -70,6 +88,25 @@
     "text": "Given two concurrent requests with different Mimecast credentials, When each calls one of the new tools, Then neither request's credentials or response data leak into the other (per-request isolation, no shared state at module level).",
     "type": "auto",
     "tests": ["tests/test_middleware.py::test_concurrent_requests_do_not_share_credentials"],
+    "result": "pass",
+    "evidence": "uv run pytest tests/test_middleware.py::test_concurrent_requests_do_not_share_credentials -> passed. The new tools read credentials the same way every existing tool does (get_client_from_context -> contextvars), so this generic isolation test already covers them.",
     "notes": "Covered by the existing generic concurrency-isolation test; not tool-specific, no test change required."
+  },
+  {
+    "id": "TC-MANUAL-1",
+    "ac": "AC1",
+    "text": "Given a real Mimecast tenant and application credentials with Gateway | Policies | Read and Gateway | Managed Senders | Edit, When an agent calls mimecast_list_policies, mimecast_get_policy and mimecast_manage_sender against it, Then the live response field names and permission errors match what this design assumed (OQ3).",
+    "type": "manual",
+    "source": "dev",
+    "steps": [
+      "Configure a real Mimecast application's client id/secret with Gateway | Policies | Read and Gateway | Managed Senders | Edit",
+      "Call mimecast_list_policies(type=\"blockedsenders\") and mimecast_list_policies(type=\"antispoofing-bypass\") against the running server",
+      "Call mimecast_get_policy for an id returned above, and once with a made-up id",
+      "Call mimecast_manage_sender without confirm, then again with confirm: true for one sender/mailbox pair"
+    ],
+    "expect": "list/get return the documented {policies,count,has_more,next_page_token} / policy-fields shapes with real field names matching OQ3's assumptions; an unknown id returns not_found; manage_sender returns done:false then done:true with the sender permitted/blocked in the Mimecast console",
+    "result": "blocked",
+    "evidence": "No Mimecast sandbox/production credentials are available to DEV01 in this environment. Per mcp-track.md 2.5 / the completion standard in mcp-track.md 3 ('completion standard'), missing a real vendor account does not block shipping; the three new tools are instead verified against the Recorder mock transport (TC1-TC10) and a local smoke test with placeholder credentials (initialize + tools/list; see Self-test).",
+    "notes": "Needs a real vendor account. Flagged in the Self-test/Handoff sections for post-merge verification."
   }
 ]

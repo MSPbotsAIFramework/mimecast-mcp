@@ -124,9 +124,12 @@ All tools return a JSON string. Lists take `page_size` (max 100) and `page_token
 | | `mimecast_get_threat_incidents` (type, search_field, search_value, from_date, to_date) | Services / Threat Remediation / Read |
 | | `mimecast_get_audit_events` (from_date, to_date, categories, query) | Account / Logs / Read |
 | Queues | `mimecast_get_queue_status` (from_date, to_date) | Account / Dashboard / Read |
+| Policies | `mimecast_list_policies` (**type**: blockedsenders, antispoofing-bypass; page_size, page_token) | Gateway / Policies / Read |
+| | `mimecast_get_policy` (**type**, **id**) | Gateway / Policies / Read |
+| | `mimecast_manage_sender` (**action**: permit, block; **sender**, **to**, confirm) - permits or blocks one sender for one mailbox | Gateway / Managed Senders / Edit |
 
-**Bold** parameters are required. `mimecast_release_message` returns `{"done": false, ...}` until it
-is called again with `confirm: true` after the user approved releasing that message.
+**Bold** parameters are required. `mimecast_release_message` and `mimecast_manage_sender` return
+`{"done": false, ...}` until called again with `confirm: true` after the user approved the change.
 
 Errors come back as a JSON envelope instead of an exception:
 
@@ -189,6 +192,17 @@ uv run pytest
 - **Tool names (10 earlier + 1 new).** The ten earlier names and their required parameters are
   unchanged. New: `mimecast_list_held_messages`, because releasing needs the held-message id, which
   only that list returns (message tracking ids are different).
+- **Policies (3 new tools, PRD-21236).** `mimecast_list_policies` / `mimecast_get_policy` cover
+  `blockedsenders` and `antispoofing-bypass` policy types via the same `/api/policy/{type}/get-policy`
+  endpoint every tool in this repo already calls (`{"data": [{}]}` to list, `{"data": [{"id": ...}]}`
+  to get one). `address-alteration` is a valid Mimecast policy type but its endpoint was not
+  independently confirmed from a quotable source, so it is not included — add it once confirmed
+  against the live OpenAPI spec or a sandbox account. Full policy create/edit/delete is out of scope:
+  it changes mail flow for the whole account, a materially larger blast radius than anything else
+  this server does; `mimecast_manage_sender` instead exposes the lowest-blast-radius write Mimecast
+  has for this purpose (permit/block one sender for one mailbox), gated by `confirm: true` exactly
+  like `mimecast_release_message`. Exact field names beyond what is documented above are a
+  pass-through of whatever Mimecast returns, not independently verified against a live account.
 - **API source.** The official Mimecast API 2.0 OpenAPI documents published on
   developer.services.mimecast.com (Email Security Cloud Gateway, Security Events, Audit Events,
   Threat Management) and its API Overview (token, pagination, regional gateways, rate limits).
